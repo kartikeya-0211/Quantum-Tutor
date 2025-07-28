@@ -1,0 +1,6 @@
+FROM gemma2:2b
+
+# Set the number of GPU layers to a high value.
+# -1 means all layers, but sometimes a slightly lower value if you hit issues.
+# For a model that fits, -1 is usually the goal.
+PARAMETER num_gpu -1

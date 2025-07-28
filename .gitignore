@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+.vscode/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# .env
+.env
+
+# Generated Databases and Results
+db/
+results/
+*.csv
+*.jsonl
+*.png
+
+# Logs and OS files
+feedback_log.txt
+.DS_Store

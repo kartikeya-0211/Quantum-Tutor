@@ -1,0 +1,14 @@
+model_list:
+  - model_name: groq-llama3
+    litellm_params:
+      model: groq/meta-llama/llama-4-scout-17b-16e-instruct
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: local-gemma
+    litellm_params:
+      model: ollama/gemma2:2b-gpu-only
+      api_base: http://127.0.0.1:11434
+  - model_name: together_mixtral
+    litellm_params:
+      model: together_ai/mistralai/Mixtral-8x7B-Instruct-v0.1
+      api_key: os.environ/TOGETHER_API_KEY
+  
