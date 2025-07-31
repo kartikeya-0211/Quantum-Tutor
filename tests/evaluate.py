@@ -9,27 +9,41 @@ import json
 import csv
 import litellm
 
-
+# --- Setup ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 os.environ["LITELLM_CONFIG_PATH"] = "config/litellm_config.yaml"
 
-
+# --- LLM and Data Loading ---
 judge_llm = ChatLiteLLM(model="groq/llama3-70b-8192")
-benchmark_results_path = "results/rag_benchmark_results_llama70b.jsonl"
-evaluation_output_path = "results/llama70b_evaluation_scores.csv"
 
-try:
-    df = pd.read_json(benchmark_results_path, lines=True)
-    df = df[df['latency_ms'] != -1].dropna().reset_index(drop=True)
-    df = df.head(200)
-    
-    logging.info(f"Successfully loaded and limited to {len(df)} questions for this test run.")
-except FileNotFoundError:
-    logging.error(f"Error: Benchmark results file not found at {benchmark_results_path}. Please run the benchmark first.")
+# --- NEW: List of all benchmark files to combine ---
+benchmark_files = [
+    "results/rag_benchmark_results.jsonl",
+    "results/rag_benchmark_results_llama70b.jsonl"
+]
+evaluation_output_path = "results/custom_evaluation_scores.csv"
+
+# --- NEW: Load and combine all benchmark data ---
+all_benchmark_data = []
+for file_path in benchmark_files:
+    try:
+        df_temp = pd.read_json(file_path, lines=True)
+        all_benchmark_data.append(df_temp)
+    except FileNotFoundError:
+        logging.warning(f"Warning: Benchmark file not found at {file_path}, skipping.")
+
+if not all_benchmark_data:
+    logging.error("No benchmark result files found. Please run the benchmark first.")
     exit()
 
+df = pd.concat(all_benchmark_data, ignore_index=True)
+df = df[df['latency_ms'] != -1].dropna().reset_index(drop=True)
+df.drop_duplicates(subset=['model', 'question'], inplace=True)
+logging.info(f"Successfully loaded and combined {len(df)} total results.")
 
+
+# --- Resume Logic ---
 existing_results = []
 if os.path.exists(evaluation_output_path):
     logging.info("Found existing evaluation file. Will skip completed evaluations.")
@@ -40,20 +54,17 @@ else:
     completed_evals = set()
     logging.info("No existing evaluation file found. Starting new evaluation.")
 
-
+# --- 1-5 SCALE Evaluation Prompt ---
 evaluation_prompt_template = """
-SYSTEM: You are an expert RAG system evaluator. Your task is to evaluate a response based on the provided data.
-First, evaluate the response against each of the 5 criteria below.
-Then, provide your final answer as a single 5-character string made up of 'Y' (Yes) or 'N' (No).
-The first character corresponds to the verdict for Faithfulness, the second to Answer Relevancy, and so on.
-For example: YNYYN
+SYSTEM: You are an expert RAG system evaluator. Your task is to evaluate a response on 5 metrics based on the provided data.
+Provide your evaluation in a single, valid JSON object. For each key, provide an integer score from 1 to 5.
 
-[EVALUATION CRITERIA]
-1.  **Faithfulness**: Is the "Submission" entirely supported by the "Context"?
-2.  **Answer Relevancy**: Is the "Submission" a relevant and useful answer to the "Question"?
-3.  **Context Precision**: Is the "Context" relevant and helpful for answering the "Question"?
-4.  **Context Recall**: Does the "Context" contain all the information from the "Reference Answer" needed to answer the "Question"?
-5.  **Answer Correctness**: Is the "Submission" factually and substantively the same as the "Reference Answer"?
+[EVALUATION CRITERIA & SCORING]
+1.  **faithfulness (Score 1-5)**: How factually consistent is the "Submission" with the "Context"? (5 = fully consistent, 1 = completely hallucinates)
+2.  **answer_relevancy (Score 1-5)**: How relevant is the "Submission" to the "Question"? (5 = perfectly relevant, 1 = irrelevant)
+3.  **context_precision (Score 1-5)**: How relevant is the "Context" to the "Question"? (5 = all context is relevant, 1 = context is irrelevant)
+4.  **context_recall (Score 1-5)**: Does the "Context" contain all the information from the "Reference Answer" to answer the question? (5 = all information is present, 1 = key information is missing)
+5.  **answer_correctness (Score 1-5)**: How factually correct and complete is the "Submission" compared to the "Reference Answer"? (5 = fully correct and complete, 1 = completely incorrect)
 
 [DATA]
 - Question: {question}
@@ -61,7 +72,7 @@ For example: YNYYN
 - Submission: {prediction}
 - Reference Answer: {reference}
 
-[YOUR 5-CHARACTER VERDICT]
+[YOUR JSON RESPONSE WITH SCORES from 1 to 5]
 """
 
 evaluation_prompt = PromptTemplate(
@@ -71,7 +82,7 @@ evaluation_prompt = PromptTemplate(
 evaluation_chain = evaluation_prompt | judge_llm
 logging.info("Custom evaluation chain is ready.")
 
-
+# --- Evaluation Loop ---
 logging.info("Starting custom evaluation...")
 new_evaluation_results = []
 
@@ -80,11 +91,12 @@ for index, row in df.iterrows():
     question = row['question']
 
     if (model, question) in completed_evals:
-        logging.info(f"Skipping row {index + 1}/{len(df)} for model '{model}', already evaluated.")
+        logging.info(f"Skipping row for model '{model}' on question '{question[:30]}...', already evaluated.")
         continue
 
     logging.info(f"Evaluating row {index + 1}/{len(df)} for model '{model}'...")
     
+    response_text = ""
     try:
         response = evaluation_chain.invoke({
             "question": row["question"],
@@ -93,45 +105,46 @@ for index, row in df.iterrows():
             "reference": row["ideal_answer"]
         })
         
-        response_text = (response.content if hasattr(response, 'content') else str(response)).strip().upper()
+        response_text = response.content if hasattr(response, 'content') else str(response)
         
-        if len(response_text) >= 5:
-            faithfulness_score = 1 if response_text[0] == 'Y' else 0
-            answer_relevancy_score = 1 if response_text[1] == 'Y' else 0
-            context_precision_score = 1 if response_text[2] == 'Y' else 0
-            context_recall_score = 1 if response_text[3] == 'Y' else 0
-            answer_correctness_score = 1 if response_text[4] == 'Y' else 0
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}')
+        if json_start != -1 and json_end != -1:
+            clean_json_str = response_text[json_start : json_end + 1]
+            scores = json.loads(clean_json_str)
         else:
-            raise ValueError(f"LLM returned a malformed verdict string: {response_text}")
+            raise json.JSONDecodeError("No JSON object found in response", response_text, 0)
 
         new_evaluation_results.append({
             'model': row['model'], 'question': row['question'],
-            'faithfulness': faithfulness_score, 'answer_relevancy': answer_relevancy_score,
-            'context_precision': context_precision_score, 'context_recall': context_recall_score,
-            'answer_correctness': answer_correctness_score,
+            'faithfulness': scores.get('faithfulness', 0),
+            'answer_relevancy': scores.get('answer_relevancy', 0),
+            'context_precision': scores.get('context_precision', 0),
+            'context_recall': scores.get('context_recall', 0),
+            'answer_correctness': scores.get('answer_correctness', 0),
         })
 
-    except litellm.RateLimitError as e:
-        logging.error(f"Stopping run on row {index + 1} due to Rate Limit Error: {e}")
+    except (litellm.RateLimitError, json.JSONDecodeError) as e:
+        logging.error(f"Stopping run on row {index + 1} due to a critical error: {e}")
         logging.info("Saving all completed results before exiting...")
         all_results = existing_results + new_evaluation_results
         if all_results:
-            evaluation_df = pd.DataFrame(all_results)
+            evaluation_df = pd.DataFrame(all_results).drop_duplicates(subset=['model', 'question'])
             evaluation_df.to_csv(evaluation_output_path, index=False, quoting=csv.QUOTE_ALL)
             logging.info(f"Progress saved to {evaluation_output_path}.")
         exit()
     except Exception as e:
         logging.error(f"An unexpected error occurred on row {index + 1}: {e}")
-        new_evaluation_results.append({'model': row['model'], 'question': row['question'], 'faithfulness': 0, 'answer_relevancy': 0, 'context_precision': 0, 'context_recall': 0, 'answer_correctness': 0})
 
-    time.sleep(20)
+    # Long delay to accommodate daily limits over 2 days
+    time.sleep(80)
 
-
+# --- Save and Display Final Results ---
 all_results = existing_results + new_evaluation_results
-evaluation_df = pd.DataFrame(all_results)
+evaluation_df = pd.DataFrame(all_results).drop_duplicates(subset=['model', 'question'])
 evaluation_df.to_csv(evaluation_output_path, index=False, quoting=csv.QUOTE_ALL)
 logging.info(f"Full evaluation scores saved to {evaluation_output_path}")
 
 summary = evaluation_df.groupby("model").mean(numeric_only=True).reset_index()
-print("\n--- Average Quality Scores per Model (0 or 1) ---")
+print("\n--- Average Quality Scores per Model (Scale 1-5) ---")
 print(summary.to_markdown(index=False))
