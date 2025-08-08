@@ -74,6 +74,10 @@ Follow these steps to get a local copy up and running on Windows, macOS, or Linu
         ```sh
         streamlit run app.py
         ```
+## 🛠️ System Architecture
+
+![Quantum Tutor Architecture](quantum_tutor_architecture.png)
+
 
 ## 📊 Benchmark Comparison
 
