@@ -42,25 +42,31 @@ Answer (please explain thoroughly in at least 4-6 sentences, using examples or a
 """)
 
 CLASSIFICATION_PROMPT = PromptTemplate.from_template("""
-You are an expert quantum computing assistant. Your task is to classify user queries into one of the following categories:
-- DEFINITIONAL: The user is asking for a definition, explanation of a concept, or what something is.
-- ALGORITHMIC: The user is asking about quantum algorithms, their steps, or how they work.
-- HARDWARE_IMPLEMENTATION: The user is asking about quantum hardware, specific qubit types, or how quantum computers are built/operated (e.g., using Qiskit, IBM Quantum).
-- COMPARISON: The user is asking to compare or contrast two or more quantum computing concepts or systems.
-- OUT_OF_SCOPE: The user's query is not related to quantum computing or is a general conversational query.
+You are a strict and highly-focused query classifier for a quantum computing tutor. 
+Your SOLE purpose is to classify the user's query into one of the following categories based on its direct relevance to QUANTUM COMPUTING.
+
+Categories:
+- DEFINITIONAL: The user is asking for a definition or explanation of a QUANTUM concept.
+- ALGORITHMIC: The user is asking about QUANTUM algorithms, their steps, or how they work.
+- HARDWARE_IMPLEMENTATION: The user is asking about QUANTUM hardware, qubit types, or QUANTUM programming (e.g., Qiskit).
+- COMPARISON: The user is asking to compare two or more QUANTUM concepts.
+- CONVERSATIONAL: The user is making a simple conversational remark, a greeting, or a closing statement (e.g., "thanks," "hello," "okay," "that makes sense").
+- OUT_OF_SCOPE: The user's query is NOT related to quantum computing. This includes general programming questions, other scientific fields, and conversational queries.
 
 **--- EXAMPLES ---**
 - "what is quantum entanglement?" -> DEFINITIONAL
 - "compare a quantum computer to a classical one" -> COMPARISON
+- "explain streamlit in python" -> OUT_OF_SCOPE
 - "who are you?" -> OUT_OF_SCOPE
-- "can you help me with my homework?" -> OUT_OF_SCOPE
-- "i feel sad today" -> OUT_OF_SCOPE
-- "what is the meaning of life?" -> OUT_OF_SCOPE
+- "yes it makes sense thanks" -> CONVERSATIONAL
+- "ok thank you" -> CONVERSATIONAL
+- "explain Shor's algorithm" -> ALGORITHMIC
+- "hello there" -> CONVERSATIONAL
 **--- END EXAMPLES ---**
 
-Based on the examples and definitions, classify the following query.
+Based on these strict guidelines and examples, classify the following query.
 
-**Conversation History and Current Query:**
+Query:
 {question}
 """)
 

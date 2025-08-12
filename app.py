@@ -260,7 +260,7 @@ for i, msg in enumerate(active_chat["messages"]):
                     display_source = source_name.split('/')[-1] if source_name != 'N/A' else 'N/A'
                     st.markdown(f"**Source** - *{display_source}*, page {doc.metadata.get('page', '?')}\n\n> {doc.page_content[:300].strip()}...")
         if msg["role"] == "assistant" and i > 0:
-            key_suffix = hash(msg['content'])
+            key_suffix = i
             display_feedback_form(msg, key_suffix=key_suffix)
 
 if prompt := st.chat_input(f"{display_name}, ask something..."):
@@ -269,15 +269,24 @@ if prompt := st.chat_input(f"{display_name}, ask something..."):
 
     start_time = time.time()
     with st.chat_message("assistant"):
+        timer_placeholder = st.empty()
+        
         with st.spinner("🤔 Thinking..."):
-            query_category = classify_query(prompt)
+            query_category = classify_query(prompt) 
+            if query_category == "CONVERSATIONAL":
+                full_response = "You're welcome! Let me know if you have any other questions about quantum computing. ⚛️"
+                st.markdown(full_response)
+                active_chat["messages"].append({"role": "assistant", "content": full_response, "sources": []})
+                active_chat["history"].add_user_message(prompt)
+                active_chat["history"].add_ai_message(full_response)
 
-            if query_category == "OUT_OF_SCOPE":
+            elif query_category == "OUT_OF_SCOPE":
                 full_response = EXACT_DISCLAIMER
                 st.markdown(full_response)
                 active_chat["messages"].append({"role": "assistant", "content": full_response, "sources": []})
                 active_chat["history"].add_user_message(prompt)
                 active_chat["history"].add_ai_message(full_response)
+            
             else:
                 response_placeholder = st.empty()
                 full_response = ""
@@ -306,7 +315,7 @@ if prompt := st.chat_input(f"{display_name}, ask something..."):
 
     st.markdown(f"_⏱️ Total Response Time: {time.time() - start_time:.2f}s_")
 
-    if (active_chat["title"] == "New Chat" and 'unique_docs' in locals() and unique_docs):
+    if (active_chat["title"] == "New Chat" and query_category not in ["CONVERSATIONAL", "OUT_OF_SCOPE"]):
         title_messages = active_chat["history"].messages
         history_for_title = [{"role": "user" if "Human" in str(type(m)) else "assistant", "content": m.content} for m in title_messages]
         title = generate_conversation_title(llm_classifier, history_for_title)
