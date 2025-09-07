@@ -63,7 +63,7 @@ Follow these steps to get a local copy up and running on Windows, macOS, or Linu
     * Download and run the [Ollama](https://ollama.com/) application for your operating system.
     * From your terminal, pull the required model:
         ```sh
-        ollama pull gemma2:2b-gpu-only
+        ollama pull gemma2:2b
         ```
 
 ### How to Run
