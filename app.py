@@ -38,7 +38,7 @@ os.environ["LITELLM_CONFIG_PATH"] = "config/litellm_config.yaml"
 
 PRIMARY_MODEL = "groq/meta-llama/llama-4-scout-17b-16e-instruct"
 FALLBACK_MODEL = "ollama/gemma2:2b-gpu-only"
-CLASSIFIER_MODEL = "groq/llama3-8b-8192"
+CLASSIFIER_MODEL = "groq/gemma2-9b-it"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
 EXACT_DISCLAIMER = os.getenv("EXACT_DISCLAIMER")
 DB_PATH = os.getenv("DB_PATH")
