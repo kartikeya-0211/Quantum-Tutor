@@ -287,6 +287,13 @@ if prompt := st.chat_input(f"{display_name}, ask something..."):
                 active_chat["history"].add_user_message(prompt)
                 active_chat["history"].add_ai_message(full_response)
             
+            elif query_category == "FEEDBACK":
+                full_response = "Thanks for the feedback! I'm always learning. Do you have another quantum computing question I can help with?"
+                st.markdown(full_response)
+                active_chat["messages"].append({"role": "assistant", "content": full_response, "sources": []})
+                active_chat["history"].add_user_message(prompt)
+                active_chat["history"].add_ai_message(full_response)
+            
             else:
                 response_placeholder = st.empty()
                 full_response = ""

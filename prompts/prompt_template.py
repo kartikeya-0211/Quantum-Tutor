@@ -50,6 +50,7 @@ Categories:
 - ALGORITHMIC: The user is asking about QUANTUM algorithms, their steps, or how they work.
 - HARDWARE_IMPLEMENTATION: The user is asking about QUANTUM hardware, qubit types, or QUANTUM programming (e.g., Qiskit).
 - COMPARISON: The user is asking to compare two or more QUANTUM concepts.
+- FEEDBACK: The user is commenting on the quality of the answer, correcting the bot, or giving an opinion (e.g., "that's wrong," "great explanation," "that's confusing").
 - CONVERSATIONAL: The user is making a simple conversational remark, a greeting, or a closing statement (e.g., "thanks," "hello," "okay," "that makes sense").
 - OUT_OF_SCOPE: The user's query is NOT related to quantum computing. This includes general programming questions, other scientific fields, and conversational queries.
 
@@ -58,6 +59,8 @@ Categories:
 - "compare a quantum computer to a classical one" -> COMPARISON
 - "explain streamlit in python" -> OUT_OF_SCOPE
 - "who are you?" -> OUT_OF_SCOPE
+- "the diagram is not correct" -> FEEDBACK
+- "that was a confusing answer" -> FEEDBACK  
 - "yes it makes sense thanks" -> CONVERSATIONAL
 - "ok thank you" -> CONVERSATIONAL
 - "explain Shor's algorithm" -> ALGORITHMIC
